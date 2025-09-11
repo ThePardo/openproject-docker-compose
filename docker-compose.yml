@@ -1,6 +1,8 @@
 networks:
   frontend:
-  backend:
+    external:
+      name: proxy-net
+  backend: {}
 
 volumes:
   pgdata:
@@ -8,24 +10,25 @@ volumes:
 
 x-op-restart-policy: &restart_policy
   restart: unless-stopped
+
 x-op-image: &image
-  image: openproject/openproject:${TAG:-16-slim}
+  image: openproject/openproject:${TAG}
+
 x-op-app: &app
   <<: [*image, *restart_policy]
   environment:
-    OPENPROJECT_HTTPS: "${OPENPROJECT_HTTPS:-true}"
-    OPENPROJECT_HOST__NAME: "${OPENPROJECT_HOST__NAME:-localhost:8080}"
-    OPENPROJECT_HSTS: "${OPENPROJECT_HSTS:-true}"
+    OPENPROJECT_HTTPS: "${OPENPROJECT_HTTPS}"
+    OPENPROJECT_HOST__NAME: "${OPENPROJECT_HOST__NAME}"
+    OPENPROJECT_HSTS: "${OPENPROJECT_HSTS}"
     RAILS_CACHE_STORE: "memcache"
     OPENPROJECT_CACHE__MEMCACHE__SERVER: "cache:11211"
-    OPENPROJECT_RAILS__RELATIVE__URL__ROOT: "${OPENPROJECT_RAILS__RELATIVE__URL__ROOT:-}"
-    DATABASE_URL: "${DATABASE_URL:-postgres://postgres:p4ssw0rd@db/openproject?pool=20&encoding=unicode&reconnect=true}"
-    RAILS_MIN_THREADS: ${RAILS_MIN_THREADS:-4}
-    RAILS_MAX_THREADS: ${RAILS_MAX_THREADS:-16}
-    # set to true to enable the email receiving feature. See ./docker/cron for more options
-    IMAP_ENABLED: "${IMAP_ENABLED:-false}"
+    OPENPROJECT_RAILS__RELATIVE__URL__ROOT: "${OPENPROJECT_RAILS__RELATIVE__URL__ROOT}"
+    DATABASE_URL: "postgres://postgres:${POSTGRES_PASSWORD}@db/openproject?pool=20&encoding=unicode&reconnect=true"
+    RAILS_MIN_THREADS: ${RAILS_MIN_THREADS}
+    RAILS_MAX_THREADS: ${RAILS_MAX_THREADS}
+    IMAP_ENABLED: "${IMAP_ENABLED}"
   volumes:
-    - "${OPDATA:-opdata}:/var/openproject/assets"
+    - "${OPDATA}:/var/openproject/assets"
 
 services:
   db:
@@ -33,9 +36,9 @@ services:
     <<: *restart_policy
     stop_grace_period: "3s"
     volumes:
-      - "${PGDATA:-pgdata}:/var/lib/postgresql/data"
+      - "${PGDATA}:/var/lib/postgresql/data"
     environment:
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-p4ssw0rd}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: openproject
     networks:
       - backend
@@ -53,8 +56,6 @@ services:
         APP_HOST: web
     image: openproject/proxy
     <<: *restart_policy
-    ports:
-      - "${PORT:-8080}:80"
     depends_on:
       - web
     networks:
@@ -73,7 +74,7 @@ services:
     labels:
       - autoheal=true
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080${OPENPROJECT_RAILS__RELATIVE__URL__ROOT:-}/health_checks/default"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080${OPENPROJECT_RAILS__RELATIVE__URL__ROOT}/health_checks/default"]
       interval: 10s
       timeout: 3s
       retries: 3
